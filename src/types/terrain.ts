@@ -9,6 +9,13 @@ export interface NoiseParams {
   fractalType: 'fbm' | 'ridged';
 }
 
+export interface ErosionParams {
+  droplets: number;
+  erosionRate: number;
+  depositionRate: number;
+  lifetime: number;
+}
+
 export interface TerrainParams {
   heightScale: number;
   waterLevel: number;
@@ -31,7 +38,7 @@ export interface ChunkMeshData {
   indices: Uint32Array;
 }
 
-export type WorkerMessageType = 'GENERATE_HEIGHTMAP' | 'GENERATE_MESH' | 'EXPORT_HEIGHTMAP';
+export type WorkerMessageType = 'GENERATE_HEIGHTMAP' | 'GENERATE_MESH' | 'EXPORT_HEIGHTMAP' | 'RUN_EROSION';
 
 export interface WorkerGenerateHeightmap {
   type: 'GENERATE_HEIGHTMAP';
@@ -57,7 +64,15 @@ export interface WorkerExportHeightmap {
   height: number;
 }
 
-export type WorkerMessage = WorkerGenerateHeightmap | WorkerGenerateMesh | WorkerExportHeightmap;
+export interface WorkerRunErosion {
+  type: 'RUN_EROSION';
+  heightmap: Float32Array;
+  width: number;
+  height: number;
+  erosionParams: ErosionParams;
+}
+
+export type WorkerMessage = WorkerGenerateHeightmap | WorkerGenerateMesh | WorkerExportHeightmap | WorkerRunErosion;
 
 export interface WorkerHeightmapResult {
   type: 'HEIGHTMAP_READY';
@@ -78,4 +93,11 @@ export interface WorkerProgressResult {
   percent: number;
 }
 
-export type WorkerResult = WorkerHeightmapResult | WorkerMeshResult | WorkerProgressResult;
+export interface WorkerErosionResult {
+  type: 'EROSION_READY';
+  data: Float32Array;
+  width: number;
+  height: number;
+}
+
+export type WorkerResult = WorkerHeightmapResult | WorkerMeshResult | WorkerProgressResult | WorkerErosionResult;

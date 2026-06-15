@@ -1,19 +1,23 @@
 import { useTerrainStore } from '../store/terrain-store';
-import { RefreshCw, Sliders, Mountain, Bug } from 'lucide-react';
+import { RefreshCw, Sliders, Mountain, Bug, Droplets } from 'lucide-react';
 
 interface ControlPanelProps {
   onRegenerate?: () => void;
+  onRunErosion?: () => void;
 }
 
-export function ControlPanel({ onRegenerate }: ControlPanelProps) {
+export function ControlPanel({ onRegenerate, onRunErosion }: ControlPanelProps) {
   const {
     noiseParams,
     terrainParams,
+    erosionParams,
     showLodDebug,
     showChunkBorders,
     isGenerating,
+    isEroding,
     setNoiseParams,
     setTerrainParams,
+    setErosionParams,
     setShowLodDebug,
     setShowChunkBorders,
   } = useTerrainStore();
@@ -285,6 +289,94 @@ export function ControlPanel({ onRegenerate }: ControlPanelProps) {
 
           <div>
             <h3 className="text-sm font-bold text-orange-400 mb-3 flex items-center gap-2">
+              <Droplets className="w-4 h-4" />
+              EROSION
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between mb-1">
+                  <label className="text-xs text-cyan-300 font-medium">DROPLETS</label>
+                  <span className="text-xs text-white font-mono">{erosionParams.droplets.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 font-mono">1k</span>
+                  <input
+                    type="range"
+                    min="1000"
+                    max="200000"
+                    step="1000"
+                    value={erosionParams.droplets}
+                    onChange={(e) => setErosionParams({ droplets: parseInt(e.target.value) })}
+                    className="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                  />
+                  <span className="text-xs text-slate-500 font-mono">200k</span>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between mb-1">
+                  <label className="text-xs text-cyan-300 font-medium">EROSION RATE</label>
+                  <span className="text-xs text-white font-mono">{erosionParams.erosionRate.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 font-mono">0.01</span>
+                  <input
+                    type="range"
+                    min="0.01"
+                    max="1.0"
+                    step="0.01"
+                    value={erosionParams.erosionRate}
+                    onChange={(e) => setErosionParams({ erosionRate: parseFloat(e.target.value) })}
+                    className="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                  />
+                  <span className="text-xs text-slate-500 font-mono">1.0</span>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between mb-1">
+                  <label className="text-xs text-cyan-300 font-medium">DEPOSITION RATE</label>
+                  <span className="text-xs text-white font-mono">{erosionParams.depositionRate.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 font-mono">0.01</span>
+                  <input
+                    type="range"
+                    min="0.01"
+                    max="1.0"
+                    step="0.01"
+                    value={erosionParams.depositionRate}
+                    onChange={(e) => setErosionParams({ depositionRate: parseFloat(e.target.value) })}
+                    className="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                  />
+                  <span className="text-xs text-slate-500 font-mono">1.0</span>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between mb-1">
+                  <label className="text-xs text-cyan-300 font-medium">LIFETIME</label>
+                  <span className="text-xs text-white font-mono">{erosionParams.lifetime}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 font-mono">10</span>
+                  <input
+                    type="range"
+                    min="10"
+                    max="200"
+                    step="5"
+                    value={erosionParams.lifetime}
+                    onChange={(e) => setErosionParams({ lifetime: parseInt(e.target.value) })}
+                    className="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                  />
+                  <span className="text-xs text-slate-500 font-mono">200</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-bold text-orange-400 mb-3 flex items-center gap-2">
               <Bug className="w-4 h-4" />
               DEBUG OPTIONS
             </h3>
@@ -311,14 +403,23 @@ export function ControlPanel({ onRegenerate }: ControlPanelProps) {
           </div>
         </div>
 
-        <div className="p-4 border-t border-cyan-500/20">
+        <div className="p-4 border-t border-cyan-500/20 space-y-3">
           <button
             onClick={onRegenerate}
-            disabled={isGenerating}
+            disabled={isGenerating || isEroding}
             className="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-all duration-200 shadow-lg shadow-cyan-600/30 hover:shadow-cyan-500/50 hover:shadow-xl flex items-center justify-center gap-2"
           >
             <RefreshCw className={`w-5 h-5 ${isGenerating ? 'animate-spin' : ''}`} />
             {isGenerating ? 'GENERATING...' : 'REGENERATE TERRAIN'}
+          </button>
+
+          <button
+            onClick={onRunErosion}
+            disabled={isGenerating || isEroding}
+            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-all duration-200 shadow-lg shadow-blue-600/30 hover:shadow-blue-500/50 hover:shadow-xl flex items-center justify-center gap-2"
+          >
+            <Droplets className={`w-5 h-5 ${isEroding ? 'animate-pulse' : ''}`} />
+            {isEroding ? 'ERODING...' : 'RUN EROSION'}
           </button>
         </div>
       </div>

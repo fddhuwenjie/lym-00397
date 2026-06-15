@@ -1,10 +1,12 @@
 import { create } from 'zustand';
-import type { NoiseParams, TerrainParams } from '../types/terrain';
+import type { NoiseParams, TerrainParams, ErosionParams } from '../types/terrain';
 
 interface TerrainState {
   noiseParams: NoiseParams;
   terrainParams: TerrainParams;
+  erosionParams: ErosionParams;
   isGenerating: boolean;
+  isEroding: boolean;
   progress: number;
   showLodDebug: boolean;
   showChunkBorders: boolean;
@@ -14,7 +16,9 @@ interface TerrainState {
 
   setNoiseParams: (params: Partial<NoiseParams>) => void;
   setTerrainParams: (params: Partial<TerrainParams>) => void;
+  setErosionParams: (params: Partial<ErosionParams>) => void;
   setIsGenerating: (v: boolean) => void;
+  setIsEroding: (v: boolean) => void;
   setProgress: (v: number) => void;
   setShowLodDebug: (v: boolean) => void;
   setShowChunkBorders: (v: boolean) => void;
@@ -42,10 +46,19 @@ const defaultTerrainParams: TerrainParams = {
   lodDistances: [80, 160, 320],
 };
 
+const defaultErosionParams: ErosionParams = {
+  droplets: 50000,
+  erosionRate: 0.3,
+  depositionRate: 0.3,
+  lifetime: 60,
+};
+
 export const useTerrainStore = create<TerrainState>((set) => ({
   noiseParams: { ...defaultNoiseParams },
   terrainParams: { ...defaultTerrainParams },
+  erosionParams: { ...defaultErosionParams },
   isGenerating: false,
+  isEroding: false,
   progress: 0,
   showLodDebug: false,
   showChunkBorders: false,
@@ -57,7 +70,10 @@ export const useTerrainStore = create<TerrainState>((set) => ({
     set((state) => ({ noiseParams: { ...state.noiseParams, ...params } })),
   setTerrainParams: (params) =>
     set((state) => ({ terrainParams: { ...state.terrainParams, ...params } })),
+  setErosionParams: (params) =>
+    set((state) => ({ erosionParams: { ...state.erosionParams, ...params } })),
   setIsGenerating: (v) => set({ isGenerating: v }),
+  setIsEroding: (v) => set({ isEroding: v }),
   setProgress: (v) => set({ progress: v }),
   setShowLodDebug: (v) => set({ showLodDebug: v }),
   setShowChunkBorders: (v) => set({ showChunkBorders: v }),

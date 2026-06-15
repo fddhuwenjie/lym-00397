@@ -161,6 +161,22 @@ export class TerrainMeshManager {
     return this.heightmapCache.get('full') ?? null;
   }
 
+  setHeightmap(data: Float32Array, min: number, max: number): void {
+    this.heightmapCache.set('full', data);
+    this.globalMin = min;
+    this.globalMax = max;
+    this.heightmapReady = true;
+
+    for (const [, mesh] of this.chunks) {
+      this.scene.remove(mesh);
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+    }
+    this.chunks.clear();
+    this.chunkLodLevels.clear();
+    this.pendingRequests.clear();
+  }
+
   getChunks(): Map<string, THREE.Mesh> {
     return this.chunks;
   }

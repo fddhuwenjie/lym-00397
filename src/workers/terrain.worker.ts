@@ -1,11 +1,13 @@
 import { generateHeightmap } from '../terrain/heightmap';
 import { generateMesh } from '../terrain/mesh';
 import { generateColors } from '../terrain/coloring';
+import { hydraulicErosion } from '../terrain/erosion';
 import type {
   WorkerMessage,
   WorkerGenerateHeightmap,
   WorkerGenerateMesh,
   WorkerExportHeightmap,
+  WorkerRunErosion,
   ChunkMeshData,
 } from '../types/terrain';
 
@@ -141,6 +143,15 @@ function handleExportHeightmap(msg: WorkerExportHeightmap) {
   );
 }
 
+function handleRunErosion(msg: WorkerRunErosion) {
+  const { heightmap, width, height, erosionParams } = msg;
+  const result = hydraulicErosion(heightmap, width, height, erosionParams, postProgress);
+  self.postMessage(
+    { type: 'EROSION_READY', data: result, width, height },
+    [result.buffer] as Transferable[],
+  );
+}
+
 self.onmessage = (e: MessageEvent<WorkerMessage>) => {
   const msg = e.data;
   switch (msg.type) {
@@ -152,6 +163,9 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
       break;
     case 'EXPORT_HEIGHTMAP':
       handleExportHeightmap(msg);
+      break;
+    case 'RUN_EROSION':
+      handleRunErosion(msg);
       break;
   }
 };

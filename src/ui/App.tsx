@@ -6,6 +6,7 @@ import { createRenderer } from '../scene/renderer';
 import { createCamera } from '../scene/camera';
 import { createLighting } from '../scene/lighting';
 import { TerrainMeshManager } from '../scene/terrain-mesh';
+import { WaterMesh } from '../scene/water-mesh';
 import { createTerrainWorker } from '../workers/worker-wrapper';
 import { exportHeightmapPNG, downloadBlob } from '../export/png-exporter';
 import { downloadOBJ } from '../export/obj-exporter';
@@ -20,6 +21,7 @@ export function App() {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const terrainManagerRef = useRef<TerrainMeshManager | null>(null);
+  const waterMeshRef = useRef<WaterMesh | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const chunkBordersRef = useRef<Map<string, THREE.LineSegments>>(new Map());
   const originalMaterialsRef = useRef<Map<string, THREE.Material>>(new Map());
@@ -28,6 +30,7 @@ export function App() {
   const showChunkBordersRef = useRef(false);
   const noiseParamsRef = useRef(useTerrainStore.getState().noiseParams);
   const terrainParamsRef = useRef(useTerrainStore.getState().terrainParams);
+  const erosionParamsRef = useRef(useTerrainStore.getState().erosionParams);
 
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
@@ -35,10 +38,11 @@ export function App() {
   const {
     noiseParams,
     terrainParams,
+    erosionParams,
     showLodDebug,
     showChunkBorders,
-    isGenerating,
     setIsGenerating,
+    setIsEroding,
     setProgress,
     setFps,
     setTriangleCount,
@@ -50,6 +54,13 @@ export function App() {
   showChunkBordersRef.current = showChunkBorders;
   noiseParamsRef.current = noiseParams;
   terrainParamsRef.current = terrainParams;
+  erosionParamsRef.current = erosionParams;
+
+  useEffect(() => {
+    if (waterMeshRef.current) {
+      waterMeshRef.current.updateParams(terrainParams.waterLevel, terrainParams.heightScale);
+    }
+  }, [terrainParams.waterLevel, terrainParams.heightScale]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -77,6 +88,14 @@ export function App() {
 
     const terrainManager = new TerrainMeshManager(scene, worker, noiseParamsRef.current, terrainParamsRef.current);
     terrainManagerRef.current = terrainManager;
+
+    const waterMesh = new WaterMesh(
+      scene,
+      terrainParamsRef.current.waterLevel,
+      terrainParamsRef.current.worldSize,
+      terrainParamsRef.current.heightScale,
+    );
+    waterMeshRef.current = waterMesh;
 
     const chunkBorders = chunkBordersRef.current;
     const originalMaterials = originalMaterialsRef.current;
@@ -175,6 +194,8 @@ export function App() {
       if (result.type === 'PROGRESS') {
         if (isExportingRef.current) {
           setExportProgress(result.percent);
+        } else if (useTerrainStore.getState().isEroding) {
+          setProgress(result.percent);
         } else {
           setProgress(result.percent);
           if (result.percent === 100) {
@@ -187,6 +208,18 @@ export function App() {
         downloadBlob(blob, `terrain_heightmap_${result.width}x${result.height}.png`);
         setIsExporting(false);
         setExportProgress(0);
+      } else if (result.type === 'EROSION_READY') {
+        if (terrainManagerRef.current) {
+          let min = Infinity;
+          let max = -Infinity;
+          for (let i = 0; i < result.data.length; i++) {
+            if (result.data[i] < min) min = result.data[i];
+            if (result.data[i] > max) max = result.data[i];
+          }
+          terrainManagerRef.current.setHeightmap(result.data, min, max);
+        }
+        setIsEroding(false);
+        setProgress(0);
       }
     };
 
@@ -258,6 +291,9 @@ export function App() {
       if (terrainManagerRef.current) {
         terrainManagerRef.current.dispose();
       }
+      if (waterMeshRef.current) {
+        waterMeshRef.current.dispose();
+      }
       worker.terminate();
       renderer.dispose();
     };
@@ -273,6 +309,27 @@ export function App() {
       terrainParams: terrainParamsRef.current,
     });
     setIsGenerating(true);
+  };
+
+  const handleRunErosion = () => {
+    if (!terrainManagerRef.current || !workerRef.current) return;
+    const heightmap = terrainManagerRef.current.getHeightmap();
+    if (!heightmap) return;
+
+    const worldSize = terrainParamsRef.current.worldSize;
+    const heightmapCopy = new Float32Array(heightmap);
+
+    workerRef.current.postMessage(
+      {
+        type: 'RUN_EROSION',
+        heightmap: heightmapCopy,
+        width: worldSize,
+        height: worldSize,
+        erosionParams: erosionParamsRef.current,
+      },
+      [heightmapCopy.buffer] as Transferable[],
+    );
+    setIsEroding(true);
   };
 
   const handleExportPNG = (width: number, height: number) => {
@@ -300,7 +357,7 @@ export function App() {
     <div className="w-full h-full relative">
       <canvas ref={canvasRef} className="w-full h-full block" />
       <HUD />
-      <ControlPanel onRegenerate={handleRegenerate} />
+      <ControlPanel onRegenerate={handleRegenerate} onRunErosion={handleRunErosion} />
       <ExportPanel
         onExportPNG={handleExportPNG}
         onExportOBJ={handleExportOBJ}
