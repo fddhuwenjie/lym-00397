@@ -18,16 +18,16 @@ function postProgress(percent: number) {
 function handleGenerateHeightmap(msg: WorkerGenerateHeightmap) {
   const { noiseParams, terrainParams } = msg;
   const size = terrainParams.worldSize;
-  const data = generateHeightmap(noiseParams, size, size);
+  const { data, min, max } = generateHeightmap(noiseParams, size, size);
   postProgress(100);
   self.postMessage(
-    { type: 'HEIGHTMAP_READY', data, width: size, height: size },
+    { type: 'HEIGHTMAP_READY', data, width: size, height: size, min, max },
     [data.buffer] as Transferable[],
   );
 }
 
 function handleGenerateMesh(msg: WorkerGenerateMesh) {
-  const { chunkId, lodLevel, noiseParams, terrainParams } = msg;
+  const { chunkId, lodLevel, noiseParams, terrainParams, globalMin, globalMax } = msg;
   const { chunkSize, heightScale, waterLevel, worldSize } = terrainParams;
 
   const lodScale = Math.pow(2, lodLevel);
@@ -36,12 +36,14 @@ function handleGenerateMesh(msg: WorkerGenerateMesh) {
   const offsetZ = chunkId.z * chunkSize;
 
   postProgress(20);
-  const heightmap = generateHeightmap(
+  const { data: heightmap } = generateHeightmap(
     noiseParams,
     effectiveChunkSize + 1,
     effectiveChunkSize + 1,
     offsetX,
     offsetZ,
+    globalMin,
+    globalMax,
   );
 
   postProgress(50);
@@ -86,14 +88,18 @@ function handleExportHeightmap(msg: WorkerExportHeightmap) {
   const needsTiling = width > tileSize || height > tileSize;
 
   if (!needsTiling) {
-    const data = generateHeightmap(noiseParams, width, height);
+    const { data, min, max } = generateHeightmap(noiseParams, width, height);
     postProgress(100);
     self.postMessage(
-      { type: 'HEIGHTMAP_READY', data, width, height },
+      { type: 'HEIGHTMAP_READY', data, width, height, min, max },
       [data.buffer] as Transferable[],
     );
     return;
   }
+
+  postProgress(5);
+  const { min: globalMin, max: globalMax } = generateHeightmap(noiseParams, width, height);
+  postProgress(10);
 
   const result = new Float32Array(width * height);
   const tilesX = Math.ceil(width / tileSize);
@@ -107,12 +113,14 @@ function handleExportHeightmap(msg: WorkerExportHeightmap) {
       const tileWidth = Math.min(tileSize, width - tileOffsetX);
       const tileHeight = Math.min(tileSize, height - tileOffsetZ);
 
-      const tileData = generateHeightmap(
+      const { data: tileData } = generateHeightmap(
         noiseParams,
         tileWidth,
         tileHeight,
         tileOffsetX,
         tileOffsetZ,
+        globalMin,
+        globalMax,
       );
 
       for (let z = 0; z < tileHeight; z++) {
@@ -122,12 +130,13 @@ function handleExportHeightmap(msg: WorkerExportHeightmap) {
       }
 
       const completed = tz * tilesX + tx + 1;
-      postProgress(Math.round((completed / totalTiles) * 100));
+      const progress = 10 + Math.round((completed / totalTiles) * 90);
+      postProgress(progress);
     }
   }
 
   self.postMessage(
-    { type: 'HEIGHTMAP_READY', data: result, width, height },
+    { type: 'HEIGHTMAP_READY', data: result, width, height, min: globalMin, max: globalMax },
     [result.buffer] as Transferable[],
   );
 }

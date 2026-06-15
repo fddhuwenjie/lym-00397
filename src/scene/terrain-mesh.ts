@@ -12,6 +12,9 @@ export class TerrainMeshManager {
   private pendingRequests: Set<string> = new Set();
   private lodDistances: [number, number, number];
   private chunkLodLevels: Map<string, number> = new Map();
+  private globalMin: number | null = null;
+  private globalMax: number | null = null;
+  private heightmapReady: boolean = false;
 
   constructor(
     scene: THREE.Scene,
@@ -31,10 +34,17 @@ export class TerrainMeshManager {
       this.onMeshReady(result.meshData);
     } else if (result.type === 'HEIGHTMAP_READY') {
       this.heightmapCache.set('full', result.data);
+      this.globalMin = result.min;
+      this.globalMax = result.max;
+      this.heightmapReady = true;
     }
   }
 
   update(camera: THREE.Camera): void {
+    if (!this.heightmapReady || this.globalMin === null || this.globalMax === null) {
+      return;
+    }
+
     const camPos = camera.position;
     const worldSize = this.terrainParams.worldSize;
     const chunkSize = this.terrainParams.chunkSize;
@@ -85,6 +95,7 @@ export class TerrainMeshManager {
   requestChunk(chunkX: number, chunkZ: number, lodLevel: number): void {
     const key = `${chunkX},${chunkZ}`;
     if (this.pendingRequests.has(key)) return;
+    if (this.globalMin === null || this.globalMax === null) return;
 
     this.worker.postMessage({
       type: 'GENERATE_MESH',
@@ -92,6 +103,8 @@ export class TerrainMeshManager {
       lodLevel,
       noiseParams: this.noiseParams,
       terrainParams: this.terrainParams,
+      globalMin: this.globalMin,
+      globalMax: this.globalMax,
     });
 
     this.pendingRequests.add(key);
@@ -129,6 +142,9 @@ export class TerrainMeshManager {
     this.noiseParams = noiseParams;
     this.terrainParams = terrainParams;
     this.lodDistances = terrainParams.lodDistances;
+    this.heightmapReady = false;
+    this.globalMin = null;
+    this.globalMax = null;
 
     for (const [, mesh] of this.chunks) {
       this.scene.remove(mesh);

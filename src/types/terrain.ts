@@ -45,6 +45,8 @@ export interface WorkerGenerateMesh {
   lodLevel: number;
   noiseParams: NoiseParams;
   terrainParams: TerrainParams;
+  globalMin?: number;
+  globalMax?: number;
 }
 
 export interface WorkerExportHeightmap {
@@ -62,6 +64,8 @@ export interface WorkerHeightmapResult {
   data: Float32Array;
   width: number;
   height: number;
+  min: number;
+  max: number;
 }
 
 export interface WorkerMeshResult {

@@ -10,7 +10,9 @@ export function generateHeightmap(
   height: number,
   offsetX: number = 0,
   offsetZ: number = 0,
-): Float32Array {
+  fixedMin?: number,
+  fixedMax?: number,
+): { data: Float32Array; min: number; max: number } {
   const noise: NoiseSource =
     noiseParams.noiseType === 'perlin'
       ? new PerlinNoise(noiseParams.seed)
@@ -41,12 +43,15 @@ export function generateHeightmap(
     }
   }
 
-  const range = max - min;
+  const useMin = fixedMin !== undefined ? fixedMin : min;
+  const useMax = fixedMax !== undefined ? fixedMax : max;
+  const range = useMax - useMin;
+
   if (range > 0) {
     for (let i = 0; i < result.length; i++) {
-      result[i] = (result[i] - min) / range;
+      result[i] = (result[i] - useMin) / range;
     }
   }
 
-  return result;
+  return { data: result, min, max };
 }
